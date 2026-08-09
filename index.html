@@ -205,6 +205,17 @@ input[type=range]{flex:1;min-width:130px;accent-color:var(--blue)}
 .err li{margin:7px 0}
 .err .was{font-family:var(--mono);background:#fdecea;color:#a41e14;border-radius:4px;padding:0 5px}
 .err .now{font-family:var(--mono);background:#e9f7f1;color:#0d6b4f;border-radius:4px;padding:0 5px}
+.mcq .opt{display:flex;gap:9px;align-items:flex-start}
+.mcq .opt em{flex:none;font:800 12px var(--mono);width:19px;height:19px;border-radius:5px;
+  background:#eef3f9;color:var(--navy2);display:grid;place-items:center;margin-top:2px}
+.mcq .opt.ok em{background:var(--green);color:#fff}
+.mcq .opt.no em{background:var(--red);color:#fff}
+.mcq .opt.pick{border-color:var(--navy)}
+.rvw{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:8px;font-size:13.5px}
+.rvw.bad{border-left:3px solid var(--red)} .rvw.good{border-left:3px solid var(--green)}
+.rvw b.n{font:800 11px var(--mono);color:var(--ink2);margin-right:6px}
+.rvw .ans{margin-top:5px;font-size:12.5px}
+.rvw .ans i{font-style:normal;font-family:var(--mono)}
 .hide{display:none!important}
 textarea.big{width:100%;min-height:150px;padding:11px;border:1px solid var(--line);border-radius:11px;
   font-family:var(--mono);font-size:12px;outline:none}
@@ -235,6 +246,7 @@ textarea.big{width:100%;min-height:150px;padding:11px;border:1px solid var(--lin
   <li><a href="#s04"><i>04</i>應／不得</a></li>
   <li><a href="#s05"><i>05</i>圖解</a></li>
   <li><a href="#s06"><i>06</i>自我測驗</a></li>
+  <li><a href="#s06b"><i>06B</i>選擇題</a></li>
   <li><a href="#s07"><i>07</i>有聲複習</a></li>
   <li><a href="#s08"><i>08</i>速查</a></li>
   <li><a href="#s09"><i>09</i>題庫</a></li>
@@ -674,6 +686,39 @@ textarea.big{width:100%;min-height:150px;padding:11px;border:1px solid var(--lin
   <div id="qsum"></div>
 </section>
 
+
+<!-- ===== 06B ===== -->
+<section id="s06b">
+  <div class="sh"><span class="no">06B</span><h2>選擇題測驗</h2></div>
+  <p class="sub">以全書 751 張卡為底即時生成四選一，題幹全部取自藍皮書原文。可出 <b id="mqtot">0</b> 題。</p>
+  <div class="qbar">
+    <select class="sel" id="mqch"></select>
+    <select class="sel" id="mqtype">
+      <option value="all">全部題型</option>
+      <option value="val">數值題</option>
+      <option value="term">關鍵詞填空</option>
+      <option value="judge">敘述判斷（挑錯的）</option>
+      <option value="src">出處題</option>
+      <option value="glo">名詞題</option>
+    </select>
+    <select class="sel" id="mqn"><option>20</option><option selected>40</option><option>80</option></select>
+    <select class="sel" id="mqfb">
+      <option value="now">立即對答案</option>
+      <option value="end">交卷後一次檢討</option>
+    </select>
+    <label style="font-size:13px;font-weight:700">限時
+      <input class="sel" id="mqmin" type="number" value="0" min="0" style="width:72px"> 分（0＝不限）</label>
+    <label style="font-size:13px;font-weight:700"><input type="checkbox" id="mqwrong"> 只練錯題</label>
+    <button class="btn blue" id="mqstart">開始測驗</button>
+    <button class="btn sec" id="mqclear">清空錯題</button>
+  </div>
+  <div id="mqbox"><div class="qbox" style="color:var(--ink2);font-size:13.5px">
+    五種題型都是從原文長出來的：<b>數值題</b>挖掉規定裡的數字、<b>關鍵詞填空</b>挖掉器材或系統名稱、
+    <b>敘述判斷</b>放三句原文＋一句被動過手腳的、<b>出處題</b>問這條規定屬於哪個作業、<b>名詞題</b>考縮寫。
+    每題檢討都會附藍皮書頁碼。</div></div>
+  <div id="mqreview"></div>
+</section>
+
 <!-- ===== 07 ===== -->
 <section id="s07">
   <div class="sh"><span class="no">07</span><h2>有聲複習</h2></div>
@@ -817,6 +862,11 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp
 function rnd(n){return Math.floor(Math.random()*n)}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
 function pageURL(p){return 'p.'+p}
+function maskAll(s,words){
+  var out=s;
+  (typeof words==='string'?[words]:words).forEach(function(w){ out=out.split(w).join('\u3014\u3000\uff1f\u3000\u3015') });
+  return out;
+}
 function blankAt(s,v){
   // blank EVERY clean occurrence; skip ones glued to a longer number ("6%" inside "16%")
   var out='',from=0,i,hit=false;
@@ -1092,10 +1142,14 @@ function buildPool(mode){
     RL.forEach(function(r){
       var c=CD[r[0]]; if(!inScope(c[0]))return;
       var s=lineOf(r[0],r[1]);
-      var kw=r[2]==='ban'?(s.match(/(不得|禁止|嚴禁|不可|不准|不應|不允許)/)||[])[0]
-                         :(s.match(/(必須|務必|應|須|需|一律|強制)/)||[])[0];
-      if(!kw)return;
-      var q=s.replace(kw,'〔　？　〕');
+      var BANW=['不得','禁止','嚴禁','不可','不准','不應','不允許'];
+      var MUSTW=['必須','務必','一律','強制','應','須','需'];
+      var words=r[2]==='ban'?BANW:MUSTW;
+      if(!words.some(function(w){return s.indexOf(w)>=0}))return;
+      // 同一句同時有「不得」和「應」時，挖空後無法判定該填哪一類 → 不出這題
+      var rest=s; BANW.forEach(function(w){rest=rest.split(w).join('')});
+      if(r[2]==='ban' && MUSTW.some(function(w){return rest.indexOf(w)>=0}))return;
+      var q=maskAll(s,words);
       if(q===s)return;
       pool.push({mode:'rule',type:'opt',q:q,opts:['應／須（強制要做）','不得／禁止（不可以做）'],
         a:r[2]==='ban'?'不得／禁止（不可以做）':'應／須（強制要做）',fix:true,src:c,tip:tpName(c[0]),key:s});
@@ -1541,6 +1595,306 @@ function bkFinish(){
     '<div class="qbar"><button class="btn blue" id="bkagain">再考一次</button></div></div>';
   $('#bkagain').onclick=function(){$('#qbstart').click()};
   bankInfo();
+}
+
+
+/* ================= 06B 選擇題測驗（全書題庫） ================= */
+var MQK='tsmc_bb_mcq_v1';
+var MQS=LSget(MQK,{wrong:{},stat:{}});
+var LETTER=['A','B','C','D'];
+
+/* --- 關鍵詞分組：挖空後的誘答一律取自同一組，語意同類但原文不同 --- */
+var TERMGROUPS=[
+  ['ERC','EMS','EEM','SO360','ISEP','WPS','TSM','SMOC','VMS','FMCS','GMS'],
+  ['安全帽','安全帶','護目鏡','防護鞋','防護衣','耳塞','防塵口罩','手套','PAPR','SCBA'],
+  ['合梯','移動梯','施工架','高空工作車','施工圍籬','工作平台'],
+  ['沖淋器','蓮蓬頭','洗眼器','滅火器','AED','急救藥品'],
+  ['工作證','許可證','小紅卡','JSA','LOTO','危害告知','工具箱會議'],
+  ['潔淨室','高架地板','天花板','夾層','屋頂','局限空間','碼頭區']
+];
+
+function fmtNum(x){
+  if(!isFinite(x)||x<=0)return null;
+  var r=Math.round(x*100)/100;
+  if(r>=1000) return String(r).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return String(r);
+}
+function splitVal(v){
+  var m=String(v).match(/^([\d.,]+)\s*(.*)$/);
+  if(!m)return null;
+  var n=parseFloat(m[1].replace(/,/g,''));
+  if(!isFinite(n))return null;
+  return {n:n,u:m[2],sp:/\s/.test(String(v))?' ':''};
+}
+function isYear(v){
+  var p=splitVal(v);
+  return !!p && /^年$/.test(p.u.trim()) && p.n>=1900;
+}
+function numDistract(v,avoid){
+  var p=splitVal(v); if(!p)return [];
+  var n=p.n, set={}, out=[];
+  [n*2,n/2,n*3,n/3,n+(n>=10?10:1),Math.max(0,n-(n>=10?10:1)),n*1.5,n*10].forEach(function(x){
+    var f=fmtNum(x); if(!f)return;
+    var cand=f+p.sp+p.u;
+    if(cand===v||set[cand])return;
+    if(avoid&&avoid.indexOf(cand)>=0)return;
+    set[cand]=1; out.push(cand);
+  });
+  return shuffle(out).slice(0,3);
+}
+
+// 這些字接在關鍵詞後面時，代表它其實是另一個詞的一部分
+var TERMTAIL={'工作證':['明'],'許可證':['明'],'手套':['箱'],'屋頂':['棚'],'天花板':['上方支撐']};
+function formsLongerWord(s,t){
+  var tails=TERMTAIL[t]; if(!tails)return false;
+  var i=s.indexOf(t); if(i<0)return false;
+  var after=s.slice(i+t.length);
+  return tails.some(function(x){return after.indexOf(x)===0});
+}
+// 前一頁被截斷的殘句（開頭就先出現右括號、或以標點起頭）不適合當選項
+function wellFormed(t){
+  if(!/^[0-9\u4e00-\u9fffA-Za-z（(]/.test(t))return false;
+  var close=t.search(/[）)]/), open=t.search(/[（(]/);
+  if(close>=0 && (open<0 || close<open))return false;
+  return true;
+}
+function mqInScope(ti){var v=+$('#mqch').value;return v<0||chOf(ti)===v}
+function mid(q){return q.k+'|'+q.stem.replace(/\s+/g,'').slice(0,60)}
+
+function buildMCQ(kind){
+  var pool=[];
+  var want=function(k){return kind==='all'||kind===k};
+
+  /* A 數值題 */
+  if(want('val')){
+    NM.forEach(function(n){
+      var c=CD[n[0]]; if(!mqInScope(c[0]))return;
+      var s=lineOf(n[0],n[1]);
+      n[2].forEach(function(v){
+        if(isYear(v))return;                 // 「2022年」是年份不是量值，擾動出來的誘答很荒謬
+        var stem=blankAt(s,v); if(!stem)return;
+        var d=numDistract(v,n[2]); if(d.length<3)return;
+        pool.push({k:'val',stem:'依藍皮書原文，空格內應為下列何者？<br><span style="font-weight:500">'+esc(stem)+'</span>',
+          opts:shuffle([v].concat(d)),a:v,p:c[1],tp:tpName(c[0]),full:s});
+      });
+    });
+  }
+
+  /* B 關鍵詞填空 */
+  if(want('term')){
+    CD.forEach(function(c,ci){
+      if(!mqInScope(c[0]))return;
+      var f=c[4]||[];
+      c[3].forEach(function(s,li){
+        if(f[li])return;
+        if(s.length<14||s.length>110)return;
+        TERMGROUPS.forEach(function(g){
+          var hits=g.filter(function(t){return s.indexOf(t)>=0});
+          if(hits.length!==1)return;           // 句中只出現一個同組詞才好挖
+          var t=hits[0];
+          if(s.split(t).length-1!==1)return;   // 出現兩次以上就會挖出兩個空格
+          if(formsLongerWord(s,t))return;      // 例如「工作證」其實是「工作證明文件」
+          var others=shuffle(g.filter(function(x){return x!==t&&s.indexOf(x)<0})).slice(0,3);
+          if(others.length<3)return;
+          var stem=maskAll(s,t);
+          pool.push({k:'term',stem:'依藍皮書原文，空格內應為下列何者？<br><span style="font-weight:500">'+esc(stem)+'</span>',
+            opts:shuffle([t].concat(others)),a:t,p:c[1],tp:tpName(c[0]),full:s});
+        });
+      });
+    });
+  }
+
+  /* C 敘述判斷：三句原文＋一句動過手腳的 */
+  if(want('judge')){
+    var byTopic={};
+    RL.forEach(function(r){
+      var c=CD[r[0]]; if(!mqInScope(c[0]))return;
+      var s=lineOf(r[0],r[1]);
+      if(s.length<16||s.length>76)return;
+      if(!wellFormed(s))return;
+      (byTopic[c[0]]=byTopic[c[0]]||[]).push({s:s,p:c[1],k:r[2]});
+    });
+    Object.keys(byTopic).forEach(function(ti){
+      var arr=byTopic[ti]; if(arr.length<4)return;
+      shuffle(arr).slice(0,Math.min(6,arr.length)).forEach(function(target){
+        var falsified=falsify(target);
+        if(!falsified)return;
+        var trues=shuffle(arr.filter(function(x){return x.s!==target.s})).slice(0,3);
+        if(trues.length<3)return;
+        var opts=shuffle([falsified].concat(trues.map(function(x){return x.s})));
+        pool.push({k:'judge',stem:'下列關於「'+esc(tpName(+ti))+'」的敘述，何者<b>錯誤</b>？',
+          opts:opts,a:falsified,p:target.p,tp:tpName(+ti),full:'原文為：'+target.s});
+      });
+    });
+  }
+
+  /* D 出處題 */
+  if(want('src')){
+    RL.forEach(function(r){
+      var c=CD[r[0]]; if(!mqInScope(c[0]))return;
+      var s=lineOf(r[0],r[1]);
+      if(s.length<18||s.length>70)return;
+      if(!wellFormed(s))return;
+      var right=tpName(c[0]);
+      var others=shuffle(TP.filter(function(t){return t[1]!==right})).slice(0,3).map(function(t){return t[1]});
+      pool.push({k:'src',stem:'下列規定出自藍皮書哪一節？<br><span style="font-weight:500">'+esc(s)+'</span>',
+        opts:shuffle([right].concat(others)),a:right,p:c[1],tp:right,full:s});
+    });
+  }
+
+  /* E 名詞題（雙向） */
+  if(want('glo')){
+    GL.forEach(function(g){
+      var o1=shuffle(GL.filter(function(x){return x!==g})).slice(0,3);
+      pool.push({k:'glo',stem:'「'+esc(g[0])+'」'+(g[1]?'（'+esc(g[1])+'）':'')+'的中文是？',
+        opts:shuffle([g[2]].concat(o1.map(function(x){return x[2]}))),a:g[2],p:0,tp:'名詞對照',full:g[0]+' ＝ '+g[2]});
+      var o2=shuffle(GL.filter(function(x){return x!==g})).slice(0,3);
+      pool.push({k:'glo',stem:'「'+esc(g[2].slice(0,44))+'」的縮寫是？',
+        opts:shuffle([g[0]].concat(o2.map(function(x){return x[0]}))),a:g[0],p:0,tp:'名詞對照',full:g[0]+' ＝ '+g[2]});
+    });
+  }
+  return pool;
+}
+
+/* 把一句原文改成「確定錯」的敘述：優先改數字，其次翻轉應／不得 */
+/* 「應」在中文裡常是複合詞的一半（供應、因應、反應、應變…），翻轉前必須檢查前後字 */
+var MODAL_BAD_PREV={'應':['供','因','反','適','相','對','答','呼','感','效','照','報','適']};
+var MODAL_BAD_NEXT={'應':['變','用','急','付','對','答','酬','有','力'],'需':['求','要'],'須':['知']};
+function modalOK(s,i,w){
+  var prev=i>0?s.charAt(i-1):'', next=s.charAt(i+w.length);
+  var bp=MODAL_BAD_PREV[w]||[], bn=MODAL_BAD_NEXT[w]||[];
+  return bp.indexOf(prev)<0 && bn.indexOf(next)<0;
+}
+function findModal(s,words){
+  for(var wi=0;wi<words.length;wi++){
+    var w=words[wi], from=0, i;
+    while((i=s.indexOf(w,from))>=0){
+      if(modalOK(s,i,w))return {w:w,i:i};
+      from=i+1;
+    }
+  }
+  return null;
+}
+function falsify(item){
+  var s=item.s;
+  var m=s.match(/(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(?:%|％|公分|公尺|公厘|mm|cm|m|公斤|kg|公噸|噸|℃|度|分鐘|小時|秒|天|日|次|人|台|層|級|倍|伏特|V|安培|A|ppm|分貝|公升)/);
+  if(m && !isYear(m[0])){
+    var d=numDistract(m[0],[m[0]]);
+    if(d.length) return s.replace(m[0],d[0]);
+  }
+  var hit;
+  if(item.k==='ban'){
+    hit=findModal(s,['嚴禁','禁止','不得','不可']);
+    if(hit) return s.slice(0,hit.i)+(hit.w==='不可'?'可以':'得')+s.slice(hit.i+hit.w.length);
+  }else{
+    hit=findModal(s,['必須','應','須','需']);
+    if(hit) return s.slice(0,hit.i)+'不得'+s.slice(hit.i+hit.w.length);
+  }
+  return null;
+}
+
+/* --- runner --- */
+var mq={list:[],i:0,pick:[],t0:0,limit:0,timer:null,fb:'now'};
+(function initMQ(){
+  $('#mqch').innerHTML='<option value="-1">全部章節</option>'+
+    CH.map(function(n,i){return '<option value="'+i+'">'+(i+1)+' '+esc(n)+'</option>'}).join('');
+  var t=$('#mqtot'); if(t)t.textContent='—';
+  setTimeout(function(){ var p=buildMCQ('all'); if(t)t.textContent=p.length },0);
+})();
+$('#mqtype').onchange=$('#mqch').onchange=function(){
+  var t=$('#mqtot'); if(t)t.textContent=buildMCQ($('#mqtype').value).length;
+};
+$('#mqclear').onclick=function(){
+  if(!confirm('清空選擇題的錯題與正確率？'))return;
+  MQS={wrong:{},stat:{}};LSset(MQK,MQS);$('#mqreview').innerHTML='<div class="hint">已清空。</div>';
+};
+$('#mqstart').onclick=function(){
+  var pool=buildMCQ($('#mqtype').value);
+  if($('#mqwrong').checked){
+    pool=pool.filter(function(q){return MQS.wrong[mid(q)]});
+    if(!pool.length){$('#mqbox').innerHTML='<div class="qbox"><div class="hint">錯題本裡還沒有這個範圍的題目。</div></div>';return}
+  }
+  if(pool.length<4){$('#mqbox').innerHTML='<div class="qbox"><div class="hint">這個範圍出不了題，換個章節或題型。</div></div>';return}
+  var n=Math.min(+$('#mqn').value||40,pool.length);
+  var mins=+$('#mqmin').value||0;
+  mq={list:shuffle(pool).slice(0,n),i:0,pick:[],t0:Date.now(),limit:mins*60,timer:null,fb:$('#mqfb').value};
+  $('#mqreview').innerHTML='';
+  clearInterval(mq.timer);
+  if(mins>0){
+    mq.timer=setInterval(function(){
+      var left=mq.limit-Math.round((Date.now()-mq.t0)/1000);
+      var el=$('#mqtime'); if(el)el.textContent=left>0?('剩 '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')):'時間到';
+      if(left<=0){clearInterval(mq.timer);mqFinish()}
+    },1000);
+  }
+  mqShow();
+};
+function mqShow(){
+  if(mq.i>=mq.list.length)return mqFinish();
+  var q=mq.list[mq.i];
+  var pct=Math.round(mq.i/mq.list.length*100);
+  var h='<div class="qbox mcq"><div class="qprog"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="qq">'+q.stem+'</div><div class="opts">'+
+    q.opts.map(function(o,i){return '<button class="opt" data-i="'+i+'"><em>'+LETTER[i]+'</em><span>'+esc(o)+'</span></button>'}).join('')+
+    '</div><div id="mqfb"></div><div class="qstat"><span>第 '+(mq.i+1)+' / '+mq.list.length+' 題</span>'+
+    '<span>'+esc(q.tp)+'</span><span id="mqtime"></span>'+
+    (mq.fb==='end'?'<span><button class="btn sec" id="mqsubmit" style="padding:4px 10px;font-size:12px">提前交卷</button></span>':'')+
+    '</div></div>';
+  $('#mqbox').innerHTML=h;
+  $$('#mqbox .opt').forEach(function(b){b.onclick=function(){mqPick(+b.dataset.i,b)}});
+  var sb=$('#mqsubmit'); if(sb)sb.onclick=mqFinish;
+}
+function mqPick(i,btn){
+  var q=mq.list[mq.i], chosen=q.opts[i];
+  mq.pick[mq.i]=chosen;
+  var ok=chosen===q.a;
+  var id=mid(q);
+  var st=MQS.stat[q.k]=MQS.stat[q.k]||{n:0,c:0};
+  st.n++; if(ok){st.c++;delete MQS.wrong[id]}else MQS.wrong[id]=1;
+  LSset(MQK,MQS);
+  if(mq.fb==='end'){ mq.i++; return mqShow() }
+  $$('#mqbox .opt').forEach(function(b){
+    var v=q.opts[+b.dataset.i];
+    if(v===q.a)b.classList.add('ok'); else if(b===btn)b.classList.add('no');
+    b.disabled=true;
+  });
+  $('#mqfb').innerHTML='<div class="fb '+(ok?'ok':'no')+'">'+(ok?'✓ 答對':'✗ 正解：<b>'+esc(q.a)+'</b>')+
+    (q.full?'<br><span style="font-size:12.5px">'+esc(q.full)+'</span>':'')+
+    (q.p?'<br><span style="font-family:var(--mono);font-size:11.5px">'+esc(q.tp)+' · <a class="pg gh" href="#" data-p="'+q.p+'">p.'+q.p+'</a></span>':'')+
+    '</div><div class="qbar" style="margin-top:10px"><button class="btn blue" id="mqnext">下一題</button></div>';
+  $('#mqnext').onclick=function(){mq.i++;mqShow()};
+}
+function mqFinish(){
+  clearInterval(mq.timer);
+  var n=mq.list.length, ans=0, ok=0;
+  mq.list.forEach(function(q,i){ if(mq.pick[i]!==undefined){ans++; if(mq.pick[i]===q.a)ok++} });
+  var sec=Math.round((Date.now()-mq.t0)/1000);
+  var score=(ok*(100/n)).toFixed(1);
+  var bars=Object.keys(MQS.stat).map(function(k){
+    var s=MQS.stat[k],p=Math.round(s.c/s.n*100);
+    var nm={val:'數值題',term:'關鍵詞',judge:'敘述判斷',src:'出處題',glo:'名詞題'}[k]||k;
+    return '<div class="bar"><span>'+nm+'</span><i><b style="width:'+p+'%"></b></i><span>'+p+'%</span></div>';
+  }).join('');
+  $('#mqbox').innerHTML='<div class="qbox"><div class="qq">交卷</div><div class="kpi">'+
+    '<div><b>'+score+'</b><span>分</span></div><div><b>'+ok+'/'+n+'</b><span>答對</span></div>'+
+    '<div><b>'+(n-ans)+'</b><span>未作答</span></div>'+
+    '<div><b>'+Math.floor(sec/60)+'m'+(sec%60)+'s</b><span>用時</span></div>'+
+    '<div><b>'+(score>=60?'及格':'未達 60')+'</b><span>結果</span></div>'+
+    '<div><b>'+Object.keys(MQS.wrong).length+'</b><span>錯題本</span></div></div>'+
+    '<div class="bars">'+bars+'</div>'+
+    '<div class="qbar" style="margin-top:12px"><button class="btn blue" id="mqagain">再考一次</button>'+
+    '<button class="btn sec" id="mqonlywrong">只練這次的錯題</button></div></div>';
+  $('#mqagain').onclick=function(){$('#mqstart').click()};
+  $('#mqonlywrong').onclick=function(){$('#mqwrong').checked=true;$('#mqstart').click()};
+  $('#mqreview').innerHTML='<div class="sh" style="margin-top:18px"><span class="no">檢討</span><h2 style="font-size:16px">逐題對答案</h2></div>'+
+    mq.list.map(function(q,i){
+      var pick=mq.pick[i], good=pick===q.a;
+      return '<div class="rvw '+(good?'good':'bad')+'"><b class="n">'+(i+1)+'</b>'+q.stem+
+        '<div class="ans">你的答案：<i>'+esc(pick===undefined?'（未作答）':pick)+'</i>'+
+        (good?'':' ／ 正解：<i>'+esc(q.a)+'</i>')+
+        (q.full?'<br>'+esc(q.full):'')+
+        (q.p?' <a class="pg gh" href="#" data-p="'+q.p+'" style="font-size:10px">p.'+q.p+'</a>':'')+'</div></div>';
+    }).join('');
 }
 
 /* ---------- smooth scroll only on deliberate navigation ---------- */
