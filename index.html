@@ -16,12 +16,13 @@
   --navy:#0a2540; --navy2:#123a63; --blue:#0f62fe; --blue2:#0043ce; --cyan:#12b3c8;
   --ink:#10243a; --ink2:#48607a; --line:#dbe4ee; --paper:#f5f8fc; --white:#fff;
   --amber:#f0900a; --red:#d92d20; --green:#12805c; --violet:#6e56cf;
-  --r:14px; --sh:0 1px 2px rgba(10,37,64,.06),0 6px 18px rgba(10,37,64,.07);
+  --r:14px; --sh:0 1px 2px rgba(10,37,64,.07),0 2px 6px rgba(10,37,64,.05);
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{scroll-behavior:smooth;scroll-padding-top:96px}
+html{scroll-padding-top:96px}
+nav a,.tile,a.pg{scroll-behavior:smooth}
 body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink);
   font-size:15px;line-height:1.72;-webkit-text-size-adjust:100%}
 h1,h2,h3,h4{margin:0;font-weight:800;letter-spacing:-.01em;line-height:1.3}
@@ -42,7 +43,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .hstat b i{font-style:normal;color:#7fd6ea}
 
 /* ---------- nav ---------- */
-nav{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);
+nav{position:sticky;top:0;z-index:60;background:#fff;
   border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav ul{display:flex;gap:2px;list-style:none;margin:0;padding:7px 10px;white-space:nowrap}
@@ -59,6 +60,13 @@ section{padding-top:26px}
 .sh h2{font-size:20px}
 .sub{color:var(--ink2);font-size:13px;margin:0 0 14px}
 
+.card,.ncard,.rl,.gl,.fig{content-visibility:auto}
+.card{contain-intrinsic-size:auto 150px}
+.ncard{contain-intrinsic-size:auto 130px}
+.rl{contain-intrinsic-size:auto 74px}
+.gl{contain-intrinsic-size:auto 96px}
+.fig{contain-intrinsic-size:auto 420px}
+.acc{contain-intrinsic-size:auto 46px}
 .card{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);
   padding:15px 16px;margin-bottom:12px}
 .card h3{font-size:15px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start}
@@ -894,12 +902,24 @@ function renderCards(){
   var keys=Object.keys(byTp).sort(function(a,b){return TP[a][2]-TP[b][2]});
   if(!keys.length){$('#clist').innerHTML='<div class="hint">沒有符合的內容。</div>';return}
   var open = q ? ' open' : '';
+  window.__byTp = byTp; window.__q = q;
   $('#clist').innerHTML=keys.map(function(ti){
     var ids=byTp[ti];
-    return '<details class="acc"'+open+'><summary><span>'+esc(TP[ti][1])+'</span>'+
-      '<em>p.'+TP[ti][2]+'–'+TP[ti][3]+' · '+ids.length+' 卡</em></summary><div class="in">'+
-      ids.map(function(i){return cardHTML(i,q)}).join('')+'</div></details>';
+    return '<details class="acc"'+open+' data-ti="'+ti+'"><summary><span>'+esc(TP[ti][1])+'</span>'+
+      '<em>p.'+TP[ti][2]+'–'+TP[ti][3]+' · '+ids.length+' 卡</em></summary>'+
+      '<div class="in"></div></details>';
   }).join('');
+  // fill only what is open; the rest is built the first time it is opened
+  $$('#clist details').forEach(function(d){
+    d.addEventListener('toggle',function(){ if(d.open) fillTopic(d) });
+    if(d.open) fillTopic(d);
+  });
+}
+function fillTopic(d){
+  if(d.dataset.filled==='1')return;
+  d.dataset.filled='1';
+  var ids=(window.__byTp||{})[d.dataset.ti]||[];
+  $('.in',d).innerHTML=ids.map(function(i){return cardHTML(i,window.__q||'')}).join('');
 }
 function hl(s,q){
   s=esc(s);
@@ -1523,6 +1543,14 @@ function bkFinish(){
   bankInfo();
 }
 
+/* ---------- smooth scroll only on deliberate navigation ---------- */
+document.addEventListener('click',function(e){
+  var a=e.target.closest('#nav a'); if(!a)return;
+  e.preventDefault();
+  var t=document.getElementById(a.getAttribute('href').slice(1));
+  if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
+});
+
 /* ---------- nav scroll-spy ---------- */
 (function(){
   var links={}; $$('#nav a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a});
@@ -1530,8 +1558,16 @@ function bkFinish(){
     es.forEach(function(e){
       if(e.isIntersecting){
         $$('#nav a').forEach(function(a){a.classList.remove('on')});
-        var l=links[e.target.id]; if(l){l.classList.add('on');
-          try{l.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'})}catch(err){}}
+        var l=links[e.target.id];
+        if(l){
+          l.classList.add('on');
+          // move the nav strip only when the active link is actually out of view,
+          // and without an animation that would fight the user's own scrolling
+          var nav=$('#nav'), lb=l.offsetLeft, lw=l.offsetWidth;
+          if(lb < nav.scrollLeft || lb+lw > nav.scrollLeft+nav.clientWidth){
+            nav.scrollLeft = lb - nav.clientWidth/2 + lw/2;
+          }
+        }
       }
     });
   },{rootMargin:'-45% 0px -50% 0px'});
